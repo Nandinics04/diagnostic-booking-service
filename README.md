@@ -1,6 +1,6 @@
-# EVE Diagnostic Booking API
+# Diagnostic Booking API
 
-Backend service for diagnostic-test bookings and simulated payments, built for the EVE Healthcare SDE Intern assignment.
+Backend service for diagnostic-test bookings and simulated payments.
 
 A patient signs up, browses diagnostic centres and tests, books an appointment, and pays through a mock payment flow. A separate webhook accepts the payment result from a simulated provider. There is no real payment gateway and no frontend. The API is exercised from the interactive docs.
 
