@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from decimal import Decimal
 from datetime import datetime
+from typing import Literal
 
 class UserCreate(BaseModel):
     full_name: str =Field(min_length=3, max_length=25)
@@ -54,6 +55,23 @@ class BookingResponse(BaseModel):
     appointment_at:datetime
     amount:Decimal
     status:str
+
+class PaymentCreate(BaseModel):
+    booking_id:int
+    outcome:Literal["SUCCESS", "FAILED"]
+
+class WebhookPayload(BaseModel):
+    event_id: str = Field(min_length=3, max_length=255)
+    booking_id: int
+    status:Literal["SUCCESS", "FAILED"]
+
+class PaymentResponse(BaseModel):
+    id:int
+    booking_id:int
+    amount:Decimal
+    status: str
+    provider_event_id:str | None
+    booking_status: str
 
     
 
