@@ -37,10 +37,10 @@ def get_current_user(
     except jwt.InvalidTokenError:
         raise credentials_error
         
-        user=db.get(User, int(user_id))
-        if user is None:
-            raise credentials_error
-        return user
+    user=db.get(User, int(user_id))
+    if user is None:
+        raise credentials_error
+    return user
 
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def signup(body: UserCreate, db:Session= Depends(get_db)):

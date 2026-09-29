@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from decimal import Decimal
+from datetime import datetime
 
 class UserCreate(BaseModel):
     full_name: str =Field(min_length=3, max_length=25)
@@ -38,4 +39,21 @@ class TestResponse(BaseModel):
     id:int
     name:str
     price:Decimal
+
+class BookingCreate(BaseModel):
+    test_id:int
+    appointment_at:datetime
+
+class BookingResponse(BaseModel):
+    id:int
+    user_id:int
+    test_id:int
+    centre_id:int
+    test_name:str
+    centre_name:str
+    appointment_at:datetime
+    amount:Decimal
+    status:str
+
+    
 
