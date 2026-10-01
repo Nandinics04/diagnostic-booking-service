@@ -2,6 +2,15 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from decimal import Decimal
 from datetime import datetime
 from typing import Literal
+from typing import Generic, TypeVar
+
+T = TypeVar('T')
+
+class Page(BaseModel, Generic[T]):
+    items:list[T]
+    total:int
+    page:int
+    page_size:int
 
 class UserCreate(BaseModel):
     full_name: str =Field(min_length=3, max_length=25)

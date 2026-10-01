@@ -1,13 +1,13 @@
 from datetime import datetime,timezone
 
-from fastapi import APIRouter,Depends,HTTPException,status
-from sqlalchemy import select
+from fastapi import APIRouter,Depends,HTTPException,status,Query
+from sqlalchemy import select,func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Booking, BookingStatus, DiagnosticTest, User
 from app.routers.auth import get_current_user
-from app.schemas import BookingCreate, BookingResponse
+from app.schemas import BookingCreate, BookingResponse, Page
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -51,17 +51,28 @@ def create_booking(
     db.refresh(booking)
     return to_booking_response(booking)
 
-@router.get("", response_model=list[BookingResponse])
+@router.get("", response_model=Page[BookingResponse])
 def list_bookings(
+    page:int=Query(1,ge=1),
+    page_size:int=Query(10,ge=1,le=50),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    booking_filter=Booking.user_id == current_user.id
+    total=db.scalar(select(func.count()).select_from(Booking).where(booking_filter))
     bookings=db.scalars(
         select(Booking)
-        .where(Booking.user_id == current_user.id)
+        .where(booking_filter)
         .order_by(Booking.id)
+        .offset((page-1)*page_size)
+        .limit(page_size)
     ).all()
-    return [to_booking_response(booking) for booking in bookings]
+    return Page(
+        items=[to_booking_response(booking) for booking in bookings],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 @router.get("/{booking_id}", response_model=BookingResponse)
 def get_booking(
