@@ -6,6 +6,7 @@ from app.database import get_db
 from app.models import Centre, DiagnosticTest, User
 from app.routers.auth import get_current_user
 from app.schemas import CentreCreate, CentreResponse, TestCreate, TestResponse, Page
+from app.cache import cache_get, cache_set, cache_delete_pattern
 
 router=APIRouter(tags=["centres"])
 
@@ -19,6 +20,7 @@ def create_centre(
     db.add(centre)
     db.commit()
     db.refresh(centre)
+    cache_delete_pattern("centres:*")
     return centre
 
 @router.get("/centres", response_model=Page[CentreResponse])
@@ -27,6 +29,11 @@ def list_centres(
     page_size:int=Query(10,ge=1,le=50),
     db: Session = Depends(get_db),
 ):
+    cache_key=f"centres:page={page}:size={page_size}"
+    cached=cache_get(cache_key)
+    if cached is not None:
+        return Page[CentreResponse].model_validate_json(cached)
+
     total = db.scalar(select(func.count()).select_from(Centre))
     rows = db.scalars(
         select(Centre)
@@ -34,8 +41,10 @@ def list_centres(
         .offset((page-1)*page_size)
         .limit(page_size)
     ).all()
-    return Page(items=rows, total=total,page=page,page_size=page_size)
-    
+    items=[CentreResponse.model_validate(row) for row in rows]
+    page_data=Page[CentreResponse](items=items, total=total,page=page,page_size=page_size)
+    cache_set(cache_key, page_data.model_dump_json())
+    return page_data
 
 @router.get("/centres/{centre_id}", response_model=CentreResponse)
 def get_centre(centre_id: int, db: Session = Depends(get_db)):
