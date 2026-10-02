@@ -11,10 +11,11 @@ os.environ["JWT_SECRET_KEY"] = values["JWT_SECRET_KEY"]
 import pytest
 from fastapi.testclient import TestClient
 
+from app.limiter import limiter
 from app.database import Base, engine
 from main import app
 
-
+limiter.reset()
 @pytest.fixture
 def client():
     Base.metadata.drop_all(bind=engine)

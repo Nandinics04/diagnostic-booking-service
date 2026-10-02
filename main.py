@@ -2,6 +2,8 @@ import logging
 import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.database import Base,engine
 from app.routers.health import router as health_router
@@ -10,6 +12,7 @@ from app.routers.centres import router as centres_router
 from app.routers.bookings import router as bookings_router
 from app.routers.payments import router as payments_router
 import app.models
+from app.limiter import limiter
 
 
 logger = logging.getLogger("eve")
@@ -29,11 +32,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="EVE Diagnostic booking API", lifespan=lifespan)
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start=time.perf_counter()
     response=await call_next(request)
-    duration_ms=round((time.perf_counter()-start)*100,1)
+    duration_ms=round((time.perf_counter()-start)*1000,1)
     logger.info(
         "method=%s, path=%s, status=%s, duration_ms=%s",
         request.method,

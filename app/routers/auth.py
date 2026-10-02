@@ -1,5 +1,5 @@
 import jwt
-from fastapi import APIRouter, Depends,HTTPException,status
+from fastapi import APIRouter, Depends,HTTPException,status,Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from app.database import get_db
 from app.models import User
 from app.schemas import UserCreate, UserResponse, Token
+from app.limiter import limiter
 from app.security import (
     ALGORITHM,
     SECRET_KEY,
@@ -59,7 +60,9 @@ def signup(body: UserCreate, db:Session= Depends(get_db)):
     return user
 
 @router.post("/login", response_model=Token)
+@limiter.limit("5/minute")
 def login(
+    request: Request,
     form: OAuth2PasswordRequestForm = Depends(),
     db:Session = Depends(get_db),
 ):

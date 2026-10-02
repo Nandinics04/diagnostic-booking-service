@@ -1,6 +1,6 @@
 import uuid 
 
-from fastapi import APIRouter,Depends,HTTPException,status
+from fastapi import APIRouter,Depends,HTTPException,status,Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -9,6 +9,8 @@ from app.database import get_db
 from app.models import Booking,BookingStatus, Payment,PaymentStatus, User
 from app.routers.auth import get_current_user
 from app.schemas import PaymentCreate, PaymentResponse, WebhookPayload
+from app.limiter import limiter
+
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -74,7 +76,8 @@ def create_payment(
     return to_payment_response(payment)
 
 @router.post("/webhook", response_model=PaymentResponse)
-def payment_webhook(body: WebhookPayload, db: Session= Depends(get_db)):
+@limiter.limit("3/minute")
+def payment_webhook(request: Request, body: WebhookPayload, db: Session= Depends(get_db)):
     booking = db.get(Booking, body.booking_id)
     if booking is None:
         raise HTTPException(status_code=404, detail="Booking not found")
