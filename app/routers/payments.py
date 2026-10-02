@@ -1,9 +1,11 @@
 import uuid 
+import logging
+import time
 
 from fastapi import APIRouter,Depends,HTTPException,status,Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.database import get_db
 from app.models import Booking,BookingStatus, Payment,PaymentStatus, User
@@ -12,6 +14,7 @@ from app.schemas import PaymentCreate, PaymentResponse, WebhookPayload
 from app.limiter import limiter
 
 
+logger = logging.getLogger("eve")
 router = APIRouter(prefix="/payments", tags=["payments"])
 
 def to_payment_response(payment:Payment)->PaymentResponse:
@@ -23,7 +26,7 @@ def to_payment_response(payment:Payment)->PaymentResponse:
         provider_event_id=payment.provider_event_id,
         booking_status=payment.booking.status.value,
     )
-
+   
 def record_payment(
     db:Session,
     booking: Booking,
@@ -60,6 +63,28 @@ def record_payment(
     db.refresh(payment)
     return payment, True
 
+def record_payment_with_retry(db, booking, outcome, event_id, attempts=3):
+    for attempt in range(1, attempts+1):
+        try:
+            # just to test retry mechanism
+            #WARNING webhook_retry event_id=evt-retry-demo attempt=1
+            #INFO method=POST, path=/payments/webhook, status=200, duration_ms=248.4
+            
+            # if event_id == "evt-retry-demo" and attempt == 1:
+            #     raise OperationalError("Simulated outage", None, None)
+            return record_payment(db, booking, outcome, event_id)
+        except OperationalError:
+            db.rollback()
+            logger.warning(
+                "webhook_retry event_id=%s attempt=%s",
+                event_id,
+                attempt,
+            )
+            if attempt == attempts:
+                raise HTTPException(status_code=500, detail="Could not process webhook")
+            time.sleep(0.2*attempt)
+ 
+
 @router.post("/", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
 def create_payment(
     body: PaymentCreate,
@@ -76,13 +101,13 @@ def create_payment(
     return to_payment_response(payment)
 
 @router.post("/webhook", response_model=PaymentResponse)
-@limiter.limit("3/minute")
+@limiter.limit("30/minute")
 def payment_webhook(request: Request, body: WebhookPayload, db: Session= Depends(get_db)):
     booking = db.get(Booking, body.booking_id)
     if booking is None:
         raise HTTPException(status_code=404, detail="Booking not found")
 
-    payment,created=record_payment(db, booking, body.status, body.event_id)
+    payment,created=record_payment_with_retry(db, booking, body.status, body.event_id)
     if not created:
         return to_payment_response(payment)
     return to_payment_response(payment)
