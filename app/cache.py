@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-redis_client=redis.Redis.from_url(os.environ['REDIS_URL'], decode_responses=True, protocol=2)
+redis_client=redis.Redis.from_url(os.environ['REDIS_URL'], decode_responses=True,)
 
 def cache_get(key: str) -> str | None:
     try:

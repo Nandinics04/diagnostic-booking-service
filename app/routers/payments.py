@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models import Booking,BookingStatus, Payment,PaymentStatus, User
 from app.routers.auth import get_current_user
 from app.schemas import PaymentCreate, PaymentResponse, WebhookPayload
+from app.tasks import prepare_booking_confirmation
 from app.limiter import limiter
 
 
@@ -61,6 +62,8 @@ def record_payment(
         return existing, False
 
     db.refresh(payment)
+    if payment.status == PaymentStatus.SUCCESS:
+        prepare_booking_confirmation.delay(booking.id)
     return payment, True
 
 def record_payment_with_retry(db, booking, outcome, event_id, attempts=3):
